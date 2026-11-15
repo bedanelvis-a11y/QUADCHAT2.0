@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuadChat</title>
+<style>
+  :root {
+    --bg: #f3f5f9; --card: #ffffff; --text: #19212c; --muted: #657083; --line: #e1e6ee;
+    --brand: #5b4bdb; --brand-dark: #4638b8; --mine: #5b4bdb; --mine-text: #fff; --theirs: #eef1f6; --danger: #c2332f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0e1218; --card: #161c25; --text: #e7ecf3; --muted: #93a0b2; --line: #262f3d;
+            --brand: #7b6dff; --brand-dark: #6556ee; --theirs: #202938; --danger: #ff6b66; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  [hidden] { display: none !important; }
+  button { font: inherit; cursor: pointer; }
+  input { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; width: 100%; }
+  input:focus { outline: 2px solid var(--brand); border-color: transparent; }
+  code { background: var(--theirs); padding: 1px 6px; border-radius: 6px; font-size: 13px; }
+  .btn { background: var(--brand); color: #fff; border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 600; }
+  .btn:hover { background: var(--brand-dark); }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .btn.ghost:hover { background: var(--theirs); }
+  .err { color: var(--danger); font-size: 14px; min-height: 20px; margin: 8px 0 0; }
+
+  /* login */
+  #auth { min-height: 100%; display: grid; place-items: center; padding: 20px; }
+  .auth-card { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 28px; }
+  .logo { font-size: 26px; font-weight: 800; letter-spacing: -.5px; margin: 0 0 4px; }
+  .logo span { color: var(--brand); }
+  .tag { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .tabs { display: flex; gap: 6px; background: var(--bg); padding: 4px; border-radius: 10px; margin-bottom: 14px; }
+  .tabs button { flex: 1; border: 0; background: transparent; color: var(--muted); padding: 8px; border-radius: 8px; font-weight: 600; }
+  .tabs button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .auth-card label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 6px; }
+  .auth-card .btn { width: 100%; margin-top: 14px; }
+  .steps { margin: 8px 0 0; padding-left: 20px; }
+  .steps li { margin: 4px 0; }
+
+  /* chat */
+  #chat { height: 100%; display: flex; flex-direction: column; }
+  .top { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: var(--card); border-bottom: 1px solid var(--line); }
+  .top .who { color: var(--muted); font-size: 14px; margin-right: 12px; }
+  .main { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px 1fr; }
+  .side { background: var(--card); border-right: 1px solid var(--line); padding: 18px; overflow-y: auto; }
+  .side h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .block { margin-bottom: 24px; }
+  .code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 34px; font-weight: 800; letter-spacing: .12em; color: var(--brand); user-select: all; }
+  .row { display: flex; gap: 8px; margin-top: 10px; }
+  .row .btn { flex: 1; padding: 9px 10px; font-size: 14px; }
+  .count { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .full { color: var(--danger); font-weight: 700; }
+  ul.members { list-style: none; margin: 0; padding: 0; }
+  ul.members li { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #2fbf71; flex: none; }
+  .join-row { display: flex; gap: 8px; }
+  .join-row input { text-transform: uppercase; letter-spacing: .1em; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .join-row .btn { padding: 0 16px; }
+  .hint { color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+  .panel { display: flex; flex-direction: column; min-height: 0; }
+  #msgs { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .m { max-width: min(520px, 80%); padding: 9px 13px; border-radius: 14px; background: var(--theirs); word-wrap: break-word; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .m.me { align-self: flex-end; background: var(--mine); color: var(--mine-text); border-bottom-right-radius: 4px; }
+  .m:not(.me) { border-bottom-left-radius: 4px; }
+  .m .meta { font-size: 11px; opacity: .7; margin-bottom: 2px; white-space: normal; }
+  .sys { align-self: center; color: var(--muted); font-size: 13px; padding: 2px 10px; }
+  form.send { display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--card); }
+  form.send .btn { padding: 0 22px; }
+
+  @media (max-width: 760px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .side { border-right: 0; border-bottom: 1px solid var(--line); max-height: 46vh; }
+    .code { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN / REGISTER -->
+<div id="auth" hidden>
+  <div class="auth-card">
+    <h1 class="logo">Quad<span>Chat</span></h1>
+    <p class="tag">Private rooms for up to 4 people.</p>
+
+    <!-- shown when the server can't be reached -->
+    <div id="offline" hidden>
+      <p class="err" style="min-height:0;font-weight:600;margin-top:0">Can't reach the QuadChat server.</p>
+      <ol class="hint steps">
+        <li>In VS Code open the terminal (Ctrl + `).</li>
+        <li>Go to the QuadChat folder and run <code>node server.js</code>.</li>
+        <li>Press Retry below.</li>
+      </ol>
+      <p class="hint" id="fileTip" hidden>Tip: you opened the file directly. It's easier to browse to <b>http://localhost:3000</b>.</p>
+      <label for="srv">Server address</label>
+      <input id="srv" value="http://localhost:3000" autocomplete="off">
+      <button class="btn" id="retry" type="button">Retry</button>
+    </div>
+
+    <div id="authBox" hidden>
+      <div class="tabs">
+        <button id="tabLogin" class="on" type="button">Log in</button>
+        <button id="tabReg" type="button">Register</button>
+      </div>
+      <form id="authForm">
+        <label for="user">Username</label>
+        <input id="user" autocomplete="username" maxlength="20" required>
+        <label for="pass">Password</label>
+        <input id="pass" type="password" autocomplete="current-password" required>
+        <p class="hint" id="passHint" style="margin:6px 0 0" hidden>Username: 3-20 letters, numbers or _ &nbsp;·&nbsp; Password: at least 6 characters.</p>
+        <p class="err" id="authErr"></p>
+        <button class="btn" id="authBtn" type="submit">Log in</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div id="chat" hidden>
+  <div class="top">
+    <h1 class="logo" style="font-size:20px;margin:0">Quad<span>Chat</span></h1>
+    <div><span class="who" id="who"></span><button class="btn ghost" id="logout" type="button">Log out</button></div>
+  </div>
+  <div class="main">
+    <aside class="side">
+      <div class="block">
+        <h3>Your room code</h3>
+        <div class="code" id="code">------</div>
+        <div class="row">
+          <button class="btn ghost" id="copy" type="button">Copy</button>
+          <button class="btn ghost" id="newRoom" type="button">New code</button>
+        </div>
+        <p class="hint" style="margin-top:10px">Share this code. It is erased when everyone leaves or logs out.</p>
+      </div>
+      <div class="block">
+        <h3>In this room</h3>
+        <div class="count" id="count"></div>
+        <ul class="members" id="members"></ul>
+      </div>
+      <div class="block">
+        <h3>Join another room</h3>
+        <form class="join-row" id="joinForm">
+          <input id="joinCode" placeholder="CODE" maxlength="8" autocomplete="off">
+          <button class="btn" type="submit">Join</button>
+        </form>
+        <p class="err" id="joinErr"></p>
+      </div>
+    </aside>
+    <section class="panel">
+      <div id="msgs" aria-live="polite"></div>
+      <form class="send" id="sendForm">
+        <input id="text" placeholder="Type a message..." maxlength="500" autocomplete="off">
+        <button class="btn" type="submit">Send</button>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let API = '';            // address of the QuadChat server ('' = same address as this page)
+let token = null;        // login token (kept per browser tab)
+let es = null, me = null, currentCode = null, mode = 'login';
+
+/* small safe wrappers around browser storage */
+const tab = {
+  get(k) { try { return sessionStorage.getItem(k); } catch (_) { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch (_) {} },
+  del(k) { try { sessionStorage.removeItem(k); } catch (_) {} },
+};
+const saved = {
+  get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (_) {} },
+};
+
+async function api(path, body) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  let r;
+  try {
+    r = await fetch(API + path, { method: body === undefined ? 'GET' : 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  } catch (_) {
+    throw new Error("Can't reach the server. Is 'node server.js' still running?");
+  }
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+}
+
+/* ---------- finding the server ---------- */
+async function ping(base) {
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 2500);
+    const r = await fetch(base + '/api/ping', { signal: ctl.signal });
+    clearTimeout(t);
+    return (await r.json()).app === 'quadchat';
+  } catch (_) { return false; }
+}
+async function findServer() {
+  const list = [];
+  if (location.protocol !== 'file:') list.push('');            // page served by the server itself
+  const custom = saved.get('qc_server'); if (custom) list.push(custom);
+  list.push('http://localhost:3000');
+  for (const base of list) { if (await ping(base)) { API = base; return true; } }
+  return false;
+}
+
+/* ---------- screens ---------- */
+function showAuth() {
+  if (es) { es.close(); es = null; }
+  me = null; token = null; currentCode = null; tab.del('qc_token');
+  $('chat').hidden = true; $('auth').hidden = false;
+  $('offline').hidden = true; $('authBox').hidden = false;
+  $('msgs').innerHTML = ''; $('pass').value = '';
+}
+function showOffline() {
+  $('chat').hidden = true; $('auth').hidden = false;
+  $('authBox').hidden = true; $('offline').hidden = false;
+  $('fileTip').hidden = location.protocol !== 'file:';
+  $('srv').value = saved.get('qc_server') || 'http://localhost:3000';
+}
+function showChat(name) {
+  me = name; $('who').textContent = 'Signed in as ' + name;
+  $('auth').hidden = true; $('chat').hidden = false;
+  connect();
+}
+
+async function start() {
+  if (!(await findServer())) return showOffline();
+  token = tab.get('qc_token');
+  if (token) {
+    try { const d = await api('/api/me'); return showChat(d.username); }
+    catch (_) { /* old token, fall through to login */ }
+  }
+  showAuth();
+}
+$('retry').onclick = () => {
+  const v = $('srv').value.trim().replace(/\/+$/, '');
+  if (v && v !== 'http://localhost:3000') saved.set('qc_server', v);
+  start();
+};
+
+/* ---------- login / register ---------- */
+function setMode(m) {
+  mode = m;
+  $('tabLogin').classList.toggle('on', m === 'login');
+  $('tabReg').classList.toggle('on', m === 'register');
+  $('authBtn').textContent = m === 'login' ? 'Log in' : 'Create account';
+  $('pass').autocomplete = m === 'login' ? 'current-password' : 'new-password';
+  $('passHint').hidden = m === 'login';
+  $('authErr').textContent = '';
+}
+$('tabLogin').onclick = () => setMode('login');
+$('tabReg').onclick = () => setMode('register');
+
+$('authForm').onsubmit = async e => {
+  e.preventDefault();
+  $('authErr').textContent = '';
+  const username = $('user').value.trim(), password = $('pass').value;
+  if (mode === 'register') {
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) return $('authErr').textContent = 'Username: 3-20 letters, numbers or _';
+    if (password.length < 6) return $('authErr').textContent = 'Password must be at least 6 characters';
+  }
+  try {
+    const d = await api(mode === 'login' ? '/api/login' : '/api/register', { username, password });
+    token = d.token; tab.set('qc_token', token);
+    showChat(d.username);
+  } catch (err) { $('authErr').textContent = err.message; }
+};
+
+$('logout').onclick = async () => {
+  try { await api('/api/logout', {}); } catch (_) {}
+  showAuth();
+};
+
+/* ---------- live connection ---------- */
+function connect() {
+  if (es) es.close();
+  es = new EventSource(API + '/api/events?token=' + encodeURIComponent(token));
+  es.addEventListener('state', e => renderState(JSON.parse(e.data)));
+  es.addEventListener('message', e => addMessage(JSON.parse(e.data)));
+  es.addEventListener('system', e => addSystem(JSON.parse(e.data).text));
+  es.onerror = async () => {
+    if (es && es.readyState === EventSource.CLOSED) {   // server refused (session ended)
+      try { await api('/api/me'); connect(); } catch (_) { showAuth(); }
+    }
+  };
+}
+
+function renderState(s) {
+  if (s.code !== currentCode) {
+    if (currentCode !== null) $('msgs').innerHTML = '';   // new room -> fresh chat
+    currentCode = s.code;
+    addSystem('You are in room ' + s.code);
+  }
+  $('code').textContent = s.code;
+  const full = s.members.length >= s.max;
+  $('count').innerHTML = s.members.length + ' / ' + s.max + (full ? ' <span class="full">- room full</span>' : '');
+  $('members').innerHTML = '';
+  s.members.forEach(n => {
+    const li = document.createElement('li');
+    const dot = document.createElement('span'); dot.className = 'dot';
+    const name = document.createElement('span'); name.textContent = n + (n === me ? ' (you)' : '');
+    li.append(dot, name); $('members').append(li);
+  });
+}
+
+function scrollDown() { const m = $('msgs'); m.scrollTop = m.scrollHeight; }
+
+function addMessage(d) {
+  const div = document.createElement('div');
+  div.className = 'm' + (d.from === me ? ' me' : '');
+  const meta = document.createElement('div'); meta.className = 'meta';
+  meta.textContent = (d.from === me ? 'You' : d.from) + ' · ' + new Date(d.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const body = document.createElement('div'); body.textContent = d.text;
+  div.append(meta, body); $('msgs').append(div); scrollDown();
+}
+function addSystem(text) {
+  const div = document.createElement('div'); div.className = 'sys'; div.textContent = text;
+  $('msgs').append(div); scrollDown();
+}
+
+/* ---------- actions ---------- */
+$('sendForm').onsubmit = async e => {
+  e.preventDefault();
+  const text = $('text').value.trim();
+  if (!text) return;
+  $('text').value = '';
+  try { await api('/api/send', { text }); } catch (err) { addSystem(err.message); }
+};
+
+$('joinForm').onsubmit = async e => {
+  e.preventDefault();
+  $('joinErr').textContent = '';
+  try {
+    await api('/api/join', { code: $('joinCode').value });
+    $('joinCode').value = '';
+  } catch (err) { $('joinErr').textContent = err.message; }
+};
+
+$('newRoom').onclick = async () => {
+  if (!confirm('Leave this room and get a new code?')) return;
+  try { await api('/api/newroom', {}); } catch (err) { addSystem(err.message); }
+};
+
+$('copy').onclick = async () => {
+  const code = $('code').textContent;
+  try { await navigator.clipboard.writeText(code); }
+  catch (_) {
+    const t = document.createElement('textarea'); t.value = code; document.body.append(t);
+    t.select(); document.execCommand('copy'); t.remove();
+  }
+  $('copy').textContent = 'Copied!'; setTimeout(() => $('copy').textContent = 'Copy', 1200);
+};
+
+/* ---------- start ---------- */
+start();
+</script>
+</body>
+</html>
